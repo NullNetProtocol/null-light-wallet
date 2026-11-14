@@ -1,0 +1,25 @@
+[package]
+name = "null_light_core"
+version = "0.1.0"
+edition = "2021"
+description = "Rust core of the NULL light wallet: a thin bridge over the null-chain crates"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+anyhow = "1"
+flutter_rust_bridge = "=2.13.0"
+# Pinned to a release tag, never a branch.
+null-protocol = { git = "https://github.com/NullNetProtocol/null-chain", tag = "v0.1.11" }
+
+[lints.rust]
+# The generated FFI glue needs unsafe; our own code forbids it (src/api).
+unsafe_code = "deny"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "warn"

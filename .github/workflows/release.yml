@@ -1,0 +1,150 @@
+name: Release
+
+# Pushing a tag like v0.1.0 builds the signed Android APKs and the web
+# wallet and publishes them as a GitHub release with SHA256SUMS. Running it
+# by hand builds the same files as workflow artifacts, signed with the debug
+# key, without a release.
+#
+# The signing key is in the `release` environment, which only tags v* can
+# use (docs/release.md).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: 3.47.4
+  # SHA-256 of the release signing certificate. A tag build signed with
+  # anything else fails: Android would refuse it as an update.
+  SIGNER_SHA256: f64ecd6d0a2a5528350e678fa1de2d01b25491c48c8c609f8bb125cb680b7280
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches pubspec.yaml
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version=$(sed -n 's/^version: \([0-9.]*\)+.*/\1/p' pubspec.yaml)
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "tag $GITHUB_REF_NAME does not match pubspec version v$version" >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Version for a manual run
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        run: |
+          version=$(sed -n 's/^version: \([0-9.]*\)+.*/\1/p' pubspec.yaml)
+          echo "VERSION=$version-dev" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+      # Nightly first, for the web core (the bridge runs it by name); stable
+      # last, so it is the default for the Android build.
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: wasm32-unknown-unknown
+          components: rust-src
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack,flutter_rust_bridge_codegen@2.13.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Test
+        run: |
+          flutter pub get
+          flutter test
+          (cd rust && cargo test)
+
+      - name: Signing key
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          umask 077
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/release.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=nullwallet"
+            echo "keyPassword=$KEYSTORE_PASSWORD"
+          } > android/key.properties
+
+      - name: Build the APKs
+        run: |
+          flutter build apk --release
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/null-wallet-$VERSION.apk"
+          flutter build apk --release --split-per-abi --target-platform android-arm64
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "dist/null-wallet-$VERSION-arm64.apk"
+
+      - name: Check the signer
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          for apk in dist/*.apk; do
+            got=$("$apksigner" verify --print-certs "$apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
+            if [ "$got" != "$SIGNER_SHA256" ]; then
+              echo "$apk is signed by $got, not the release key" >&2
+              exit 1
+            fi
+          done
+
+      - name: Remove the signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks" android/key.properties
+
+      - name: Build the web wallet
+        run: |
+          scripts/build-web.sh
+          tar -C build/web -czf "dist/null-wallet-web-$VERSION.tar.gz" .
+
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum null-wallet-* > SHA256SUMS && cat SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: null-wallet-release
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: null-wallet-release
+          path: dist
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" dist/*
+          --repo "$GITHUB_REPOSITORY"
+          --title "NULL Wallet $GITHUB_REF_NAME"
+          --generate-notes

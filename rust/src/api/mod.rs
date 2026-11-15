@@ -3,4 +3,5 @@
 #![forbid(unsafe_code)]
 
 pub mod core;
+pub mod handler;
 pub mod wallet;

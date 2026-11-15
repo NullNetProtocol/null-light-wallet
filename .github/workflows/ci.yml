@@ -21,7 +21,24 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze
       - run: flutter test
-      - run: flutter build web --release
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: wasm32-unknown-unknown
+          components: rust-src
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack,flutter_rust_bridge_codegen@2.13.0
+      - run: flutter pub get
+      - run: scripts/build-web.sh
 
   rust:
     runs-on: ubuntu-latest
@@ -36,3 +53,7 @@ jobs:
       - run: cargo fmt -- --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+      - name: Clippy for the browser build
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo clippy --target wasm32-unknown-unknown -- -D warnings

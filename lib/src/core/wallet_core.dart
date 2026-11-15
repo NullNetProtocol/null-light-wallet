@@ -1,13 +1,13 @@
-import 'dart:io' show File;
-
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../rust/api/core.dart' as rust;
 import '../rust/api/wallet.dart' as rw;
 import '../rust/api/wallet.dart'
     show ActivityItem, Balance, PreparedSend, SyncStep;
-import '../rust/frb_generated.dart';
+import 'platform/init_io.dart'
+    if (dart.library.js_interop) 'platform/init_web.dart';
+import 'platform/store_io.dart'
+    if (dart.library.js_interop) 'platform/store_web.dart';
 
 export '../rust/api/wallet.dart'
     show ActivityItem, ActivityKind, Balance, PreparedSend, SendState, SyncStep;
@@ -89,15 +89,15 @@ abstract class WalletHandle {
   void close();
 }
 
-/// The Rust core over flutter_rust_bridge (Android).
+/// The Rust core over flutter_rust_bridge: native on Android, WebAssembly
+/// in the browser.
 class RustCore implements WalletCore {
   RustCore._(this.store);
 
-  /// Loads the native library once.
+  /// Loads the core once, with this platform's wallet storage.
   static Future<RustCore> load() async {
-    await RustLib.init();
-    final dir = await getApplicationSupportDirectory();
-    return RustCore._(FileStore('${dir.path}/wallet.redb'));
+    await initCore();
+    return RustCore._(await platformStore());
   }
 
   @override
@@ -123,38 +123,6 @@ class RustCore implements WalletCore {
 
   @override
   Future<void> warmUpProving() => rw.warmUpProving();
-}
-
-/// The wallet as a file in the app's private directory, which Android
-/// keeps out of backups (`data_extraction_rules.xml`).
-class FileStore implements WalletStore {
-  FileStore(this.path);
-
-  final String path;
-
-  @override
-  Future<bool> exists() => File(path).exists();
-
-  @override
-  Future<WalletHandle> create(String words, String passphrase) async =>
-      RustHandle(
-        await rw.LightWallet.createFile(
-          path: path,
-          words: words,
-          passphrase: passphrase,
-        ),
-      );
-
-  @override
-  Future<WalletHandle> open(String passphrase) async => RustHandle(
-    await rw.LightWallet.openFile(path: path, passphrase: passphrase),
-  );
-
-  @override
-  Future<void> delete() async {
-    final file = File(path);
-    if (await file.exists()) await file.delete();
-  }
 }
 
 /// [WalletHandle] over the Rust `LightWallet`.
@@ -229,8 +197,8 @@ class RustHandle implements WalletHandle {
   void close() => _wallet.dispose();
 }
 
-/// Stand-in where the core is not built yet: the browser, until the web
-/// build carries the Rust core.
+/// Stand-in when the core cannot load, for example a browser page served
+/// without cross-origin isolation.
 class UnavailableCore implements WalletCore {
   const UnavailableCore();
 
@@ -275,6 +243,13 @@ class _NoStore implements WalletStore {
   Future<void> delete() async {}
 }
 
-/// The core for the platform the app runs on.
-Future<WalletCore> loadCore() async =>
-    kIsWeb ? const UnavailableCore() : await RustCore.load();
+/// The core for the platform the app runs on, or the stand-in if it does
+/// not load.
+Future<WalletCore> loadCore() async {
+  try {
+    return await RustCore.load();
+  } catch (e) {
+    debugPrint('wallet core did not load: $e');
+    return const UnavailableCore();
+  }
+}

@@ -37,5 +37,5 @@ dart format lib test
 (cd rust && cargo fmt && cargo clippy --all-targets -- -D warnings && cargo test)
 flutter_rust_bridge_codegen generate   # after changing rust/src/api
 flutter build apk --release
-flutter build web --release
+scripts/build-web.sh                   # web: core to web/pkg, then build/web
 ```

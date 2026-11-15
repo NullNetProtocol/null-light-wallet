@@ -13,6 +13,8 @@ ThemeData nullTheme(Brightness brightness) {
     dynamicSchemeVariant: DynamicSchemeVariant.monochrome,
   ).copyWith(primary: ink, onPrimary: paper, surface: paper, onSurface: ink);
   return ThemeData(
+    // Bundled (pubspec.yaml): the web build must not fetch fonts.
+    fontFamily: 'Roboto',
     colorScheme: scheme,
     useMaterial3: true,
     scaffoldBackgroundColor: paper,

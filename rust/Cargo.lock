@@ -1180,12 +1180,14 @@ dependencies = [
  "anyhow",
  "flutter_rust_bridge",
  "getrandom 0.2.17",
+ "js-sys",
  "null-chain",
  "null-circuit",
  "null-protocol",
  "null-wallet",
  "rand_core",
  "tempfile",
+ "wasm-bindgen",
 ]
 
 [[package]]

@@ -31,7 +31,8 @@
 ## Next
 
 - [ ] Send: scan a QR code, payment URIs
-- [ ] Rust core test of a real payment end to end (fund, scan, send)
+- [ ] A real payment end to end on mainnet (receive, then send) on the APK and the web
+- [x] Release workflow: a tag builds the signed APKs and the web archive, checks the signer, publishes them with SHA256SUMS (2026-11-15)
 - [ ] Rebuild a payment whose anchor got too old before it was mined
 - [ ] Wallet birthday: restore scans from genesis today
 - [ ] Android Keystore for the passphrase-derived key, biometric unlock
@@ -43,12 +44,14 @@
 
 - [x] null-chain `v0.1.12` builds for `wasm32-unknown-unknown`
       (single-threaded proving) and keeps a wallet in a byte image
-- [x] The core builds for wasm32 (`getrandom` with `js`)
-- [ ] Wire the core into the web build (flutter_rust_bridge web) and keep
-      the image in IndexedDB
-- [ ] Measure proving in WebAssembly
-- [ ] Hosting: strict CSP, COOP/COEP, a reproducible build whose hash is
-      published with each release
+- [x] The core runs in the browser (flutter_rust_bridge web, loaded from
+      the page's own scripts so no `eval` is needed); the wallet image lives
+      in IndexedDB (2026-11-15)
+- [x] Strict CSP without `'unsafe-eval'`, COOP/COEP; no CDN or remote fonts
+- [x] Release archive with its hash in `SHA256SUMS`
+- [ ] Measure proving in WebAssembly (a send) on a phone browser
+- [ ] Reproducible web build (pinned nightly), so anyone can rebuild the
+      served archive and compare the hash
 
 ## Later
 

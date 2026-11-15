@@ -4,10 +4,14 @@ A light wallet for [NULL](https://nullnet.sh), the shielded-only
 cryptocurrency: an Android app (APK) and a web wallet, from one Flutter
 codebase with a Rust core.
 
-**Status: early, unreleased.** The Android app creates and restores
-wallets, syncs from a light server, receives and sends. It has not had an
-independent review yet: do not trust it with more than you can lose. The
-web build does not carry the wallet core yet. See [TODO.md](TODO.md).
+**Status: early.** The Android app and the web wallet create and restore
+wallets, sync from a light server, receive and send. Neither has had an
+independent review yet: do not trust it with more than you can lose. See
+[TODO.md](TODO.md).
+
+- Android: the signed APK from the [releases](../../releases) (check its
+  certificate, see [docs/release.md](docs/release.md)).
+- Web: https://wallet.nullnet.sh, the web archive of the same release.
 
 ## How it works
 
@@ -53,9 +57,19 @@ flutter build web --release       # web wallet
 After changing `rust/src/api`, regenerate the bindings with
 `flutter_rust_bridge_codegen generate`.
 
-The web build does not include the Rust core yet. The core compiles to
-WebAssembly; wiring it into the web build and keeping the wallet in
-IndexedDB is next. Until then the web wallet holds no keys.
+The web wallet runs the same Rust core as WebAssembly and keeps the
+wallet, sealed under its passphrase, in the browser's IndexedDB. Building it
+needs nightly Rust with `rust-src`, `wasm-pack` and
+`flutter_rust_bridge_codegen` 2.13.0:
+
+```
+scripts/build-web.sh              # core to web/pkg, then build/web
+```
+
+It must be served with cross-origin isolation (COOP `same-origin`, COEP
+`require-corp`) and works under a strict Content-Security-Policy with no
+`'unsafe-eval'` (`script-src 'self' 'wasm-unsafe-eval' blob:`). Every
+resource is self-hosted: no CDN, no web fonts from elsewhere.
 
 Releases are described in [docs/release.md](docs/release.md).
 

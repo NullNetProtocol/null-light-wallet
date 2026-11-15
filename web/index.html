@@ -41,6 +41,10 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <!-- The wallet core (WebAssembly), loaded here rather than injected and
+       evaluated by the bridge, so the page needs no 'unsafe-eval'. -->
+  <script src="pkg/null_light_core.js"></script>
+  <script src="core_global.js"></script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

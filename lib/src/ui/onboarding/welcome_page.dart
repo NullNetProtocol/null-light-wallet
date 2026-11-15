@@ -53,8 +53,8 @@ class WelcomePage extends StatelessWidget {
             if (!available) ...[
               const SizedBox(height: 24),
               const Notice(
-                'This browser build does not include the wallet core yet. '
-                'Use the Android app, or check back after the next release.',
+                'The wallet core did not load in this browser. Use a current '
+                'Chrome, Firefox or Safari, or the Android app.',
               ),
             ],
           ],

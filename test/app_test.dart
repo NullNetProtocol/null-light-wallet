@@ -213,6 +213,19 @@ void main() {
     expect(find.textContaining('main network at height 2'), findsOneWidget);
   });
 
+  testWidgets('settings changes the auto-lock time', (tester) async {
+    await unlocked(tester);
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    expect(find.text('After 5 minutes in the background'), findsOneWidget);
+    await tester.tap(find.text('Auto-lock'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('10 minutes'));
+    await tester.pumpAndSettle();
+    expect(find.text('After 10 minutes in the background'), findsOneWidget);
+    expect((await AppSettings.load()).lockAfterMinutes, 10);
+  });
+
   testWidgets('lock and delete', (tester) async {
     final core = await unlocked(tester);
     await tester.tap(find.byTooltip('Lock'));

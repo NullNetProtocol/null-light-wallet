@@ -33,13 +33,13 @@ String? passphraseProblem(String passphrase) =>
     : null;
 
 /// The wallet as the screens see it: status, balance, activity, sync.
-/// Locks itself when the app has been in the background for [lockAfter].
+/// Locks itself when the app has been in the background for the
+/// [AppSettings.lockAfter] the user chose.
 class WalletModel extends ChangeNotifier {
   WalletModel({
     required this.core,
     required this.settings,
     required this.lightClient,
-    this.lockAfter = const Duration(minutes: 1),
     this.syncEvery = const Duration(minutes: 1),
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
@@ -47,7 +47,6 @@ class WalletModel extends ChangeNotifier {
   final WalletCore core;
   final AppSettings settings;
   final LightClientFactory lightClient;
-  final Duration lockAfter;
   final Duration syncEvery;
   final DateTime Function() _clock;
 
@@ -142,7 +141,7 @@ class WalletModel extends ChangeNotifier {
   void resumed() {
     final since = _backgroundedAt;
     _backgroundedAt = null;
-    if (since != null && _clock().difference(since) >= lockAfter) {
+    if (since != null && _clock().difference(since) >= settings.lockAfter) {
       lock();
     } else if (_wallet != null) {
       unawaited(sync());

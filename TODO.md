@@ -25,6 +25,7 @@
       passphrase of 8+ characters
 - [x] Receive: newest address, QR code, copy, new address
 - [x] Auto-lock after a minute in the background; lock now; delete wallet
+- [x] Auto-lock time in Settings: 1, 5 (default), 10 or 30 minutes in the background (2026-11-15)
 - [x] Android: `FLAG_SECURE` on the whole app (no screenshots, recordings
       or recents preview)
 

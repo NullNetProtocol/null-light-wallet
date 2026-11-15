@@ -46,6 +46,33 @@ class _SettingsPageState extends State<SettingsPage> {
     await widget.model.sync();
   }
 
+  Future<void> _chooseLockAfter() async {
+    final chosen = await showDialog<int>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Lock after'),
+        children: [
+          RadioGroup<int>(
+            groupValue: _settings.lockAfterMinutes,
+            onChanged: (minutes) => Navigator.of(context).pop(minutes),
+            child: Column(
+              children: [
+                for (final minutes in lockAfterChoices)
+                  RadioListTile<int>(
+                    value: minutes,
+                    title: Text(minutesText(minutes)),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (chosen == null) return;
+    await _settings.setLockAfterMinutes(chosen);
+    if (mounted) setState(() {});
+  }
+
   Future<void> _test() async {
     setState(() {
       _testing = true;
@@ -149,13 +176,17 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         ListTile(
           contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.timer_outlined),
+          title: const Text('Auto-lock'),
+          subtitle: Text(
+            'After ${minutesText(_settings.lockAfterMinutes)} in the background',
+          ),
+          onTap: _chooseLockAfter,
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.lock_outline),
           title: const Text('Lock now'),
-          subtitle: Text(
-            'Also locks after ${widget.model.lockAfter.inMinutes} minute'
-            '${widget.model.lockAfter.inMinutes == 1 ? '' : 's'} in the '
-            'background',
-          ),
           onTap: widget.model.lock,
         ),
         ListTile(
@@ -177,6 +208,9 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 }
+
+/// "1 minute", "5 minutes".
+String minutesText(int minutes) => '$minutes minute${minutes == 1 ? '' : 's'}';
 
 class _RevealDialog extends StatefulWidget {
   const _RevealDialog({required this.model});

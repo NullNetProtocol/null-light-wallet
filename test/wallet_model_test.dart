@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:null_light_wallet/src/core/wallet_core.dart';
 import 'package:null_light_wallet/src/light/light_client.dart';
 import 'package:null_light_wallet/src/settings.dart';
+import 'package:null_light_wallet/src/ui/settings_page.dart' show minutesText;
 import 'package:null_light_wallet/src/wallet_model.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -69,16 +70,34 @@ void main() {
     expect(m.status, WalletStatus.locked);
   });
 
-  test('the wallet locks after a minute in the background', () async {
+  test('the wallet locks after the chosen time in the background', () async {
     final m = await unlocked();
+    expect(m.settings.lockAfterMinutes, defaultLockAfterMinutes);
     m.paused();
-    now = now.add(const Duration(seconds: 30));
+    now = now.add(const Duration(minutes: 4));
     m.resumed();
     expect(m.status, WalletStatus.unlocked);
+    m.paused();
+    now = now.add(const Duration(minutes: 5));
+    m.resumed();
+    expect(m.status, WalletStatus.locked);
+
+    await m.unlock(pass);
+    await m.settings.setLockAfterMinutes(1);
     m.paused();
     now = now.add(const Duration(minutes: 1));
     m.resumed();
     expect(m.status, WalletStatus.locked);
+  });
+
+  test('the lock time is kept and only listed choices are accepted', () async {
+    final settings = await AppSettings.load();
+    await settings.setLockAfterMinutes(30);
+    expect((await AppSettings.load()).lockAfterMinutes, 30);
+    expect(() => settings.setLockAfterMinutes(0), throwsArgumentError);
+    expect(settings.lockAfterMinutes, 30);
+    expect(minutesText(1), '1 minute');
+    expect(minutesText(10), '10 minutes');
   });
 
   test('a sync failure is reported and the next one recovers', () async {

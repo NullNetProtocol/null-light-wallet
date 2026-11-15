@@ -137,4 +137,25 @@ void main() {
     expect(() => fromHex('abc'), throwsFormatException);
     expect(() => fromHex('zz'), throwsFormatException);
   });
+
+  test('platform transport errors become a plain light error', () async {
+    final client = LightClient(
+      Uri.parse('https://light.example'),
+      client: MockClient(
+        (_) async => throw const FormatException('TLSV1_ALERT_INTERNAL_ERROR'),
+      ),
+    );
+    await expectLater(
+      client.info(),
+      throwsA(
+        isA<LightException>()
+            .having((e) => e.code, 'code', isNull)
+            .having(
+              (e) => e.message,
+              'message',
+              'could not reach the server (getlightinfo)',
+            ),
+      ),
+    );
+  });
 }

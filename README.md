@@ -4,9 +4,10 @@ A light wallet for [NULL](https://nullnet.sh), the shielded-only
 cryptocurrency: an Android app (APK) and a web wallet, from one Flutter
 codebase with a Rust core.
 
-**Status: scaffold.** The app runs, checks addresses and talks to light
-servers, but cannot create or restore a wallet yet. Do not use it for
-funds. See [TODO.md](TODO.md).
+**Status: early, unreleased.** The Android app creates and restores
+wallets, syncs from a light server, receives and sends. It has not had an
+independent review yet: do not trust it with more than you can lose. The
+web build does not carry the wallet core yet. See [TODO.md](TODO.md).
 
 ## How it works
 
@@ -52,9 +53,9 @@ flutter build web --release       # web wallet
 After changing `rust/src/api`, regenerate the bindings with
 `flutter_rust_bridge_codegen generate`.
 
-The web build does not include the Rust core yet: the null-chain crates
-need a build without multi-threaded proving to compile to WebAssembly.
-Until then the web wallet can talk to light servers but holds no keys.
+The web build does not include the Rust core yet. The core compiles to
+WebAssembly; wiring it into the web build and keeping the wallet in
+IndexedDB is next. Until then the web wallet holds no keys.
 
 Releases are described in [docs/release.md](docs/release.md).
 

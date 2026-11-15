@@ -1,24 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../app.dart';
-import '../core/wallet_core.dart';
-import '../settings.dart';
+import '../wallet_model.dart';
 import 'receive_page.dart';
 import 'send_page.dart';
 import 'settings_page.dart';
 import 'wallet_page.dart';
 
-/// The four tabs: Wallet, Receive, Send, Settings.
+/// The four tabs of an unlocked wallet: Wallet, Receive, Send, Settings.
 class HomeShell extends StatefulWidget {
-  const HomeShell({
-    super.key,
-    required this.core,
-    required this.settings,
-    required this.lightClient,
-  });
+  const HomeShell({super.key, required this.model, required this.lightClient});
 
-  final WalletCore core;
-  final AppSettings settings;
+  final WalletModel model;
   final LightClientFactory lightClient;
 
   @override
@@ -33,17 +26,22 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      WalletPage(core: widget.core),
-      const ReceivePage(),
-      SendPage(core: widget.core),
-      SettingsPage(
-        core: widget.core,
-        settings: widget.settings,
-        lightClient: widget.lightClient,
-      ),
+      WalletPage(model: widget.model),
+      ReceivePage(model: widget.model),
+      SendPage(model: widget.model, onSent: () => setState(() => _tab = 0)),
+      SettingsPage(model: widget.model, lightClient: widget.lightClient),
     ];
     return Scaffold(
-      appBar: AppBar(title: Text(_titles[_tab])),
+      appBar: AppBar(
+        title: Text(_titles[_tab]),
+        actions: [
+          IconButton(
+            tooltip: 'Lock',
+            icon: const Icon(Icons.lock_outline),
+            onPressed: widget.model.lock,
+          ),
+        ],
+      ),
       body: SafeArea(
         child: IndexedStack(index: _tab, children: pages),
       ),

@@ -131,6 +131,10 @@ class LightClient {
       throw LightException('$method timed out');
     } on http.ClientException catch (e) {
       throw LightException('$method: ${e.message}');
+    } on Exception {
+      // TLS and socket failures (no certificate yet, host down, offline)
+      // carry platform detail the user cannot act on.
+      throw LightException('could not reach the server ($method)');
     }
     if (response.statusCode != 200) {
       throw LightException('$method: HTTP ${response.statusCode}');

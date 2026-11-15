@@ -39,6 +39,8 @@ dependencies:
   null_light_core:
     path: rust_builder
   flutter_rust_bridge: 2.13.0
+  path_provider: ^2.1.6
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:

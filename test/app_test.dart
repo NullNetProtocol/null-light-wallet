@@ -1,122 +1,227 @@
-import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:null_light_wallet/src/app.dart';
-import 'package:null_light_wallet/src/core/wallet_core.dart';
-import 'package:null_light_wallet/src/light/light_client.dart';
 import 'package:null_light_wallet/src/light/network.dart';
 import 'package:null_light_wallet/src/settings.dart';
+import 'package:null_light_wallet/src/ui/onboarding/create_flow.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-/// A core that accepts addresses starting with `null1good`.
-class FakeCore implements WalletCore {
-  @override
-  bool get available => true;
+import 'fakes.dart';
 
-  @override
-  String get version => '9.9.9';
+const pass = 'correct horse';
 
-  @override
-  AddressValidity checkAddress(String address) =>
-      address.startsWith('null1good')
-      ? const AddressValidity(true)
-      : const AddressValidity(false, 'invalid checksum');
+/// Scrolls `finder` into view, then taps it.
+Future<void> tapVisible(WidgetTester tester, Finder finder) async {
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+  await tester.pumpAndSettle();
 }
 
-LightClient _server(Uri endpoint) => LightClient(
-  endpoint,
-  client: MockClient((request) async {
-    final id = (jsonDecode(request.body) as Map)['id'];
-    return http.Response(
-      jsonEncode({
-        'jsonrpc': '2.0',
-        'result': {
-          'network': 'main',
-          'genesis': NullNetwork.main.genesis,
-          'height': 19780,
-          'best_block_hash': 'ab' * 32,
-          'syncing': false,
-          'coinbase_maturity': 100,
-          'protocol_version': 3,
-          'max_range': 100,
-        },
-        'id': id,
-      }),
-      200,
-    );
-  }),
-);
-
 void main() {
+  late FakeServer server;
+
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
+    server = FakeServer(['h0', 'pay:250000000', 'h2']);
   });
 
-  Future<AppSettings> settings() => AppSettings.load();
+  Future<void> start(WidgetTester tester, FakeCore core) async {
+    // A tall phone, so every list fits without scrolling.
+    tester.view
+      ..physicalSize = const Size(1080, 3200)
+      ..devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      NullWalletApp(
+        core: core,
+        settings: await AppSettings.load(),
+        lightClient: server.client,
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
 
-  testWidgets('tabs switch and the wallet offers nothing that holds keys yet', (
+  /// Opens the app on an unlocked wallet holding 2.5 NULL.
+  Future<FakeCore> unlocked(WidgetTester tester) async {
+    final core = FakeCore();
+    await core.store.create(fakeWords.join(' '), pass);
+    await start(tester, core);
+    await tester.enterText(find.byType(TextField), pass);
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+    return core;
+  }
+
+  testWidgets('creating a wallet shows the phrase and asks words back', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      NullWalletApp(core: FakeCore(), settings: await settings()),
+    final core = FakeCore();
+    await start(tester, core);
+    await tester.tap(find.text('Create a new wallet'));
+    await tester.pumpAndSettle();
+    expect(find.text(' 1. word1'), findsOneWidget);
+    expect(find.text('24. word24'), findsOneWidget);
+    await tapVisible(tester, find.text('I have written it down'));
+
+    final fields = find.byType(TextField);
+    expect(fields, findsNWidgets(confirmCount));
+    for (var i = 0; i < confirmCount; i++) {
+      await tester.enterText(fields.at(i), 'wrong');
+    }
+    await tapVisible(tester, find.text('Continue'));
+    expect(find.textContaining('does not match'), findsOneWidget);
+
+    for (var i = 0; i < confirmCount; i++) {
+      final label = tester
+          .widget<TextField>(fields.at(i))
+          .decoration!
+          .labelText!; // "Word N"
+      await tester.enterText(fields.at(i), 'word${label.split(' ').last}');
+    }
+    await tapVisible(tester, find.text('Continue'));
+
+    await tester.enterText(find.byType(TextField).at(0), pass);
+    await tester.enterText(find.byType(TextField).at(1), 'different');
+    await tapVisible(tester, find.text('Create wallet'));
+    expect(find.text('The passphrases differ'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).at(1), pass);
+    await tapVisible(tester, find.text('Create wallet'));
+
+    expect(core.store.words, fakeWords.join(' '));
+    expect(core.store.passphrase, pass);
+    expect(find.text('2.5 NULL'), findsOneWidget);
+    expect(find.text('Up to date at block 2'), findsOneWidget);
+    expect(find.text('Received'), findsOneWidget);
+  });
+
+  testWidgets('restoring checks the phrase first', (tester) async {
+    final core = FakeCore();
+    await start(tester, core);
+    await tester.tap(find.text('Restore from a recovery phrase'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'too few words');
+    await tapVisible(tester, find.text('Continue'));
+    expect(find.text('a phrase has 24 words'), findsOneWidget);
+    await tester.enterText(
+      find.byType(TextField),
+      fakeWords.join('  ').toUpperCase(),
     );
-    expect(find.text('No wallet yet'), findsOneWidget);
-    final create = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Create wallet'),
+    await tapVisible(tester, find.text('Continue'));
+    await tester.enterText(find.byType(TextField).at(0), pass);
+    await tester.enterText(find.byType(TextField).at(1), pass);
+    await tapVisible(
+      tester,
+      find.widgetWithText(FilledButton, 'Restore wallet'),
     );
-    expect(create.onPressed, isNull);
+    expect(core.store.words, fakeWords.join(' '));
+    expect(find.text('2.5 NULL'), findsOneWidget);
+  });
+
+  testWidgets('a wrong passphrase does not unlock', (tester) async {
+    final core = FakeCore();
+    await core.store.create('w', pass);
+    await start(tester, core);
+    await tester.enterText(find.byType(TextField), 'guess');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+    expect(find.text('wrong passphrase'), findsOneWidget);
+    expect(find.text('Unlock your wallet'), findsOneWidget);
+  });
+
+  testWidgets('receive shows the address and hands out new ones', (
+    tester,
+  ) async {
+    await unlocked(tester);
     await tester.tap(find.text('Receive'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('receiving address'), findsOneWidget);
+    expect(find.text('null1good1'), findsOneWidget);
+    await tester.tap(find.text('New address'));
+    await tester.pumpAndSettle();
+    expect(find.text('null1good2'), findsOneWidget);
   });
 
-  testWidgets('the send screen checks addresses through the core', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      NullWalletApp(core: FakeCore(), settings: await settings()),
-    );
+  testWidgets('send reviews the fee, then pays', (tester) async {
+    final core = await unlocked(tester);
     await tester.tap(find.text('Send'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'null1bad');
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'null1bad');
     await tester.pump();
     expect(find.text('invalid checksum'), findsOneWidget);
-    await tester.enterText(find.byType(TextField).first, 'null1good');
-    await tester.pump();
-    expect(find.byIcon(Icons.check), findsOneWidget);
+    await tester.enterText(fields.at(0), 'null1good7');
+    await tester.enterText(fields.at(1), 'lots');
+    await tester.tap(find.text('Review payment'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Enter an amount'), findsOneWidget);
+
+    await tester.enterText(fields.at(1), '1.25');
+    await tester.enterText(fields.at(2), 'for coffee');
+    await tester.tap(find.text('Review payment'));
+    await tester.pumpAndSettle();
+    expect(find.text('0.0001 NULL'), findsOneWidget);
+    expect(find.text('1.2501 NULL'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Send'));
+    await tester.pumpAndSettle();
+
+    expect(server.submitted, hasLength(1));
+    expect(core.store.wallet!.sends.single.memo, 'for coffee');
+    expect(find.text('Sending'), findsOneWidget);
+    expect(find.text('1.2499 NULL'), findsOneWidget);
+  });
+
+  testWidgets('settings shows the phrase after the passphrase', (tester) async {
+    await unlocked(tester);
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    expect(find.text('9.9.9'), findsOneWidget);
+    await tester.tap(find.text('Show recovery phrase'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'nope');
+    await tester.tap(find.text('Show'));
+    await tester.pumpAndSettle();
+    expect(find.text('wrong passphrase'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, pass);
+    await tester.tap(find.text('Show'));
+    await tester.pumpAndSettle();
+    expect(find.text('24. word24'), findsOneWidget);
   });
 
   testWidgets('settings saves a server and tests the connection', (
     tester,
   ) async {
-    final s = await settings();
-    await tester.pumpWidget(
-      NullWalletApp(core: FakeCore(), settings: s, lightClient: _server),
-    );
+    await unlocked(tester);
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
-    expect(find.text('9.9.9'), findsOneWidget);
-
     final url = find.widgetWithText(TextField, 'Server URL');
     await tester.enterText(url, 'http://evil.example');
     await tester.tap(find.text('Save'));
     await tester.pump();
     expect(find.textContaining('Use https'), findsOneWidget);
-    expect(s.server, defaultServers.first);
 
     await tester.enterText(url, 'https://node.example');
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
-    expect(s.server, 'https://node.example');
-
     await tester.tap(find.text('Test connection'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('height 19780'), findsOneWidget);
+    expect(find.textContaining('main network at height 2'), findsOneWidget);
+  });
+
+  testWidgets('lock and delete', (tester) async {
+    final core = await unlocked(tester);
+    await tester.tap(find.byTooltip('Lock'));
+    await tester.pumpAndSettle();
+    expect(find.text('Unlock your wallet'), findsOneWidget);
+    await tester.tap(find.text('Forgot the passphrase?'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    expect(await core.store.exists(), isFalse);
+    expect(find.text('Create a new wallet'), findsOneWidget);
   });
 
   test('server URLs must be https, or http on loopback', () {
@@ -125,5 +230,15 @@ void main() {
     expect(validateServer('http://light.nullnet.sh'), isNotNull);
     expect(validateServer('light.nullnet.sh'), isNotNull);
     expect(validateServer(''), isNotNull);
+    expect(defaultServers, ['https://light.nullnet.sh']);
+  });
+
+  test('the words to confirm are distinct and in order', () {
+    for (var seed = 0; seed < 50; seed++) {
+      final picked = pickChallenge(Random(seed), 24, confirmCount);
+      expect(picked.toSet(), hasLength(confirmCount));
+      expect(picked, List.of(picked)..sort());
+      expect(picked.every((i) => i >= 0 && i < 24), isTrue);
+    }
   });
 }

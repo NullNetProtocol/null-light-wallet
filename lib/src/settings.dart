@@ -40,8 +40,9 @@ class AppSettings extends ChangeNotifier {
 /// Why `value` is not a usable light server URL, or `null` if it is.
 String? validateServer(String value) {
   final uri = Uri.tryParse(value.trim());
-  if (uri == null || !uri.hasAuthority)
+  if (uri == null || !uri.hasAuthority) {
     return 'Enter a full URL, like https://light.example';
+  }
   final loopback = uri.host == 'localhost' || uri.host == '127.0.0.1';
   if (uri.scheme == 'https' || (uri.scheme == 'http' && loopback)) return null;
   return 'Use https (http only for a node on this device)';

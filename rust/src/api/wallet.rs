@@ -197,6 +197,10 @@ pub struct ActivityItem {
     pub memo: Option<String>,
     /// For failed sends: why.
     pub error: Option<String>,
+    /// For sends this wallet has no record of (restored from the phrase):
+    /// `amount` is what left the wallet, the fee included, because the
+    /// chain does not say how it divides.
+    pub includes_fee: bool,
 }
 
 /// A send built and recorded, ready to hand to the light server.
@@ -427,24 +431,14 @@ impl LightWallet {
     /// Fails on a database error.
     #[flutter_rust_bridge::frb(sync)]
     pub fn activity(&self) -> Result<Vec<ActivityItem>> {
-        let operations = self.wallet.operations()?;
-        let change_heights: Vec<u32> = operations
-            .iter()
-            .filter_map(|op| match op.status {
-                OperationStatus::Confirmed { height, .. } => Some(height),
-                _ => None,
-            })
-            .collect();
         let change_address = self.wallet.keys().default_address()?;
-        let mut items: Vec<ActivityItem> = self
+        let notes: Vec<NoteView> = self
             .wallet
             .notes()?
             .iter()
-            .map(|n| note_item(n, &change_address, &change_heights))
-            .chain(operations.iter().filter_map(operation_item))
+            .map(|n| NoteView::of(n, &change_address))
             .collect();
-        items.sort_by_key(|item| std::cmp::Reverse(item.height.unwrap_or(u32::MAX)));
-        Ok(items)
+        Ok(activity_items(&notes, &self.wallet.operations()?))
     }
 
     /// The fee a payment of `amount` base units to `to` would pay now.
@@ -631,27 +625,103 @@ fn fee_of(tx: &null_protocol::transaction::Transaction) -> Result<u64> {
     Ok(null_protocol::consensus::fee_for_actions(tx.actions().len())?.raw())
 }
 
-fn note_item(note: &OwnedNote, change_address: &Address, change_heights: &[u32]) -> ActivityItem {
-    let change = note.note.recipient() == change_address && change_heights.contains(&note.height);
-    ActivityItem {
-        kind: if change {
+/// What the activity list needs from one owned note.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct NoteView {
+    value: u64,
+    height: u32,
+    spent_at: Option<u32>,
+    /// Paid to the wallet's default address, where its change goes.
+    to_change: bool,
+    memo: Option<String>,
+}
+
+impl NoteView {
+    fn of(note: &OwnedNote, change_address: &Address) -> Self {
+        Self {
+            value: note.note.value().raw(),
+            height: note.height,
+            spent_at: note.spent_at,
+            to_change: note.note.recipient() == change_address,
+            memo: note
+                .memo
+                .to_text()
+                .filter(|t| !t.is_empty())
+                .map(str::to_owned),
+        }
+    }
+}
+
+/// Notes and recorded sends as the activity list, newest first.
+///
+/// A send leaves two traces in the chain a wallet can see: its notes are
+/// spent at the height it was mined, and its change comes back to the
+/// default address in that same block. So a note to the default address
+/// mined where the wallet spent is change, whether or not this wallet made
+/// the send. A send it made has its record (recipient, amount, memo). One it
+/// has no record of, because the wallet was restored from its phrase, is
+/// shown from those traces: what was spent minus the change, fee included.
+fn activity_items(notes: &[NoteView], operations: &[Operation]) -> Vec<ActivityItem> {
+    let recorded: Vec<u32> = operations
+        .iter()
+        .filter_map(|op| match op.status {
+            OperationStatus::Confirmed { height, .. } => Some(height),
+            _ => None,
+        })
+        .collect();
+    let mut spend_heights: Vec<u32> = notes.iter().filter_map(|n| n.spent_at).collect();
+    spend_heights.sort_unstable();
+    spend_heights.dedup();
+    let is_change = |n: &NoteView| n.to_change && spend_heights.contains(&n.height);
+
+    let received = notes.iter().map(|n| ActivityItem {
+        kind: if is_change(n) {
             ActivityKind::Change
         } else {
             ActivityKind::Received
         },
-        amount: note.note.value().raw(),
-        height: Some(note.height),
+        amount: n.value,
+        height: Some(n.height),
         created_at: None,
         state: None,
         address: None,
         txid: None,
-        memo: note
-            .memo
-            .to_text()
-            .filter(|t| !t.is_empty())
-            .map(str::to_owned),
+        memo: n.memo.clone(),
         error: None,
-    }
+        includes_fee: false,
+    });
+    let unrecorded = spend_heights
+        .iter()
+        .filter(|h| !recorded.contains(h))
+        .filter_map(|&height| {
+            let sum = |f: &dyn Fn(&NoteView) -> bool| {
+                notes
+                    .iter()
+                    .filter(|n| f(n))
+                    .fold(0u64, |a, n| a.saturating_add(n.value))
+            };
+            let spent = sum(&|n| n.spent_at == Some(height));
+            let change = sum(&|n| n.height == height && is_change(n));
+            let out = spent.saturating_sub(change);
+            (out > 0).then_some(ActivityItem {
+                kind: ActivityKind::Sent,
+                amount: out,
+                height: Some(height),
+                created_at: None,
+                state: Some(SendState::Confirmed),
+                address: None,
+                txid: None,
+                memo: None,
+                error: None,
+                includes_fee: true,
+            })
+        });
+    let mut items: Vec<ActivityItem> = received
+        .chain(unrecorded)
+        .chain(operations.iter().filter_map(operation_item))
+        .collect();
+    items.sort_by_key(|item| std::cmp::Reverse(item.height.unwrap_or(u32::MAX)));
+    items
 }
 
 fn operation_item(op: &Operation) -> Option<ActivityItem> {
@@ -677,6 +747,7 @@ fn operation_item(op: &Operation) -> Option<ActivityItem> {
             .filter(|t| !t.is_empty())
             .map(str::to_owned),
         error,
+        includes_fee: false,
     })
 }
 
@@ -776,5 +847,101 @@ mod tests {
         );
         assert!(wallet.send_rejected(1, "x".into()).is_err());
         assert_eq!(wallet.pending_transactions().unwrap().len(), 0);
+    }
+
+    fn note(value: u64, height: u32, spent_at: Option<u32>, to_change: bool) -> NoteView {
+        NoteView {
+            value,
+            height,
+            spent_at,
+            to_change,
+            memo: None,
+        }
+    }
+
+    fn summary(items: &[ActivityItem]) -> Vec<(ActivityKind, u64, Option<u32>, bool)> {
+        items
+            .iter()
+            .map(|i| (i.kind, i.amount, i.height, i.includes_fee))
+            .collect()
+    }
+
+    #[test]
+    fn a_restored_wallet_shows_its_send_and_change_from_the_chain() {
+        // 10 received at 100 on a handed-out address; 2 sent at 120 with a
+        // 0.0002 fee, 7.9998 change back to the default address.
+        let notes = [
+            note(10 * COIN, 100, Some(120), false),
+            note(799_980_000, 120, None, true),
+        ];
+        assert_eq!(
+            summary(&activity_items(&notes, &[])),
+            vec![
+                (ActivityKind::Change, 799_980_000, Some(120), false),
+                (ActivityKind::Sent, 200_020_000, Some(120), true),
+                (ActivityKind::Received, 10 * COIN, Some(100), false),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_recorded_send_is_shown_from_its_record_only() {
+        let notes = [
+            note(10 * COIN, 100, Some(120), false),
+            note(799_980_000, 120, None, true),
+        ];
+        let recipient = Address::decode(
+            &LightWallet::create_image(
+                "abandon abandon abandon abandon abandon abandon abandon abandon \
+                 abandon abandon abandon abandon abandon abandon abandon abandon \
+                 abandon abandon abandon abandon abandon abandon abandon art"
+                    .into(),
+                "pass".into(),
+            )
+            .unwrap()
+            .new_address()
+            .unwrap(),
+            AddressPrefix::Main,
+        )
+        .unwrap();
+        let mut op = Operation::new(
+            1,
+            0,
+            vec![Payment {
+                recipient,
+                amount: Amount::from_raw(2 * COIN).unwrap(),
+                memo: Memo::empty(),
+            }],
+            1,
+        );
+        op.status = OperationStatus::Confirmed {
+            txid: null_protocol::transaction::TxId::from_bytes([7; 32]),
+            height: 120,
+        };
+        let items = activity_items(&notes, &[op]);
+        assert_eq!(
+            summary(&items)
+                .iter()
+                .map(|(k, a, _, f)| (*k, *a, *f))
+                .collect::<Vec<_>>(),
+            vec![
+                (ActivityKind::Change, 799_980_000, false),
+                (ActivityKind::Sent, 2 * COIN, false),
+                (ActivityKind::Received, 10 * COIN, false),
+            ]
+        );
+        assert!(items[1].address.is_some());
+    }
+
+    #[test]
+    fn a_payment_to_the_default_address_is_received_unless_the_wallet_spent_there() {
+        let notes = [note(5 * COIN, 50, None, true), note(COIN, 60, None, false)];
+        assert_eq!(
+            summary(&activity_items(&notes, &[])),
+            vec![
+                (ActivityKind::Received, COIN, Some(60), false),
+                (ActivityKind::Received, 5 * COIN, Some(50), false),
+            ]
+        );
     }
 }

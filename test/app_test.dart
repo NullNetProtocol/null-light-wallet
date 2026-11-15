@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:null_light_wallet/src/app.dart';
 import 'package:null_light_wallet/src/light/network.dart';
 import 'package:null_light_wallet/src/settings.dart';
+import 'package:null_light_wallet/src/core/wallet_core.dart';
 import 'package:null_light_wallet/src/ui/onboarding/create_flow.dart';
+import 'package:null_light_wallet/src/ui/wallet_page.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -240,5 +242,32 @@ void main() {
       expect(picked, List.of(picked)..sort());
       expect(picked.every((i) => i >= 0 && i < 24), isTrue);
     }
+  });
+
+  testWidgets('a send known only from the chain says the fee is included', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(1080, 3200)
+      ..devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ActivityTile(
+            item: ActivityItem(
+              kind: ActivityKind.sent,
+              amount: BigInt.from(200020000),
+              height: 120,
+              state: SendState.confirmed,
+              includesFee: true,
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Sent'), findsOneWidget);
+    expect(find.text('−2.0002'), findsOneWidget);
+    expect(find.text('block 120 · network fee included'), findsOneWidget);
   });
 }

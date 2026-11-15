@@ -1097,8 +1097,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ActivityItem dco_decode_activity_item(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 9)
-      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
     return ActivityItem(
       kind: dco_decode_activity_kind(arr[0]),
       amount: dco_decode_u_64(arr[1]),
@@ -1109,6 +1109,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       txid: dco_decode_opt_String(arr[6]),
       memo: dco_decode_opt_String(arr[7]),
       error: dco_decode_opt_String(arr[8]),
+      includesFee: dco_decode_bool(arr[9]),
     );
   }
 
@@ -1366,6 +1367,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_txid = sse_decode_opt_String(deserializer);
     var var_memo = sse_decode_opt_String(deserializer);
     var var_error = sse_decode_opt_String(deserializer);
+    var var_includesFee = sse_decode_bool(deserializer);
     return ActivityItem(
       kind: var_kind,
       amount: var_amount,
@@ -1376,6 +1378,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       txid: var_txid,
       memo: var_memo,
       error: var_error,
+      includesFee: var_includesFee,
     );
   }
 
@@ -1681,6 +1684,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_String(self.txid, serializer);
     sse_encode_opt_String(self.memo, serializer);
     sse_encode_opt_String(self.error, serializer);
+    sse_encode_bool(self.includesFee, serializer);
   }
 
   @protected

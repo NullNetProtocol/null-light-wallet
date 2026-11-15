@@ -31,7 +31,8 @@
 ## Next
 
 - [ ] Send: scan a QR code, payment URIs
-- [ ] A real payment end to end on mainnet (receive, then send) on the APK and the web
+- [x] A real payment end to end on mainnet (receive, then send) on the APK (2026-11-15)
+- [ ] The same on the web wallet
 - [x] Release workflow: a tag builds the signed APKs and the web archive, checks the signer, publishes them with SHA256SUMS (2026-11-15)
 - [ ] Rebuild a payment whose anchor got too old before it was mined
 - [ ] Wallet birthday: restore scans from genesis today

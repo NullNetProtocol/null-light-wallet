@@ -1274,6 +1274,7 @@ impl SseDecode for crate::api::wallet::ActivityItem {
         let mut var_txid = <Option<String>>::sse_decode(deserializer);
         let mut var_memo = <Option<String>>::sse_decode(deserializer);
         let mut var_error = <Option<String>>::sse_decode(deserializer);
+        let mut var_includesFee = <bool>::sse_decode(deserializer);
         return crate::api::wallet::ActivityItem {
             kind: var_kind,
             amount: var_amount,
@@ -1284,6 +1285,7 @@ impl SseDecode for crate::api::wallet::ActivityItem {
             txid: var_txid,
             memo: var_memo,
             error: var_error,
+            includes_fee: var_includesFee,
         };
     }
 }
@@ -1659,6 +1661,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::wallet::ActivityItem {
             self.txid.into_into_dart().into_dart(),
             self.memo.into_into_dart().into_dart(),
             self.error.into_into_dart().into_dart(),
+            self.includes_fee.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -1865,6 +1868,7 @@ impl SseEncode for crate::api::wallet::ActivityItem {
         <Option<String>>::sse_encode(self.txid, serializer);
         <Option<String>>::sse_encode(self.memo, serializer);
         <Option<String>>::sse_encode(self.error, serializer);
+        <bool>::sse_encode(self.includes_fee, serializer);
     }
 }
 

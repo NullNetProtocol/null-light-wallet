@@ -171,6 +171,7 @@ class ActivityTile extends StatelessWidget {
       if (item.state == SendState.pending) 'waiting to be mined',
       if (item.address != null) _short(item.address!),
       if (item.memo != null) '“${item.memo}”',
+      if (item.includesFee) 'network fee included',
       if (item.error != null) item.error!,
     ].join(' · ');
     final failed = item.state == SendState.failed;

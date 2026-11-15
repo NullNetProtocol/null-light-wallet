@@ -148,6 +148,7 @@ class FakeWallet implements WalletHandle {
     for (var h = scanned.length - 1; h >= 0; h--)
       if (scanned[h].startsWith('pay:'))
         ActivityItem(
+          includesFee: false,
           kind: ActivityKind.received,
           amount: BigInt.parse(scanned[h].substring(4)),
           height: h,
@@ -175,6 +176,7 @@ class FakeWallet implements WalletHandle {
     sends.insert(
       0,
       ActivityItem(
+        includesFee: false,
         kind: ActivityKind.sent,
         amount: amount,
         createdAt: BigInt.from(now.millisecondsSinceEpoch ~/ 1000),
@@ -198,6 +200,7 @@ class FakeWallet implements WalletHandle {
     final index = sends.length - operation.toInt();
     final old = sends[index];
     sends[index] = ActivityItem(
+      includesFee: false,
       kind: old.kind,
       amount: old.amount,
       createdAt: old.createdAt,

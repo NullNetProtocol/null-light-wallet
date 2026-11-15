@@ -7,8 +7,9 @@ import '../frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `account_phrase`, `coins`, `explain`, `fee_of`, `genesis_hash`, `max_note_height`, `normalize`, `note_item`, `operation_item`, `params`, `parse_address`, `payment`, `proving_key`, `require_passphrase`, `settle_sends`, `settled`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `eq`, `eq`, `fmt`, `fmt`, `fmt`
+// These functions are ignored because they are not marked as `pub`: `account_phrase`, `activity_items`, `coins`, `explain`, `fee_of`, `genesis_hash`, `max_note_height`, `normalize`, `of`, `operation_item`, `params`, `parse_address`, `payment`, `proving_key`, `require_passphrase`, `settle_sends`, `settled`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `NoteView`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`
 
 /// Base units per coin, for Dart's amount formatting.
 BigInt unitsPerCoin() => RustLib.instance.api.crateApiWalletUnitsPerCoin();
@@ -217,6 +218,11 @@ class ActivityItem {
   /// For failed sends: why.
   final String? error;
 
+  /// For sends this wallet has no record of (restored from the phrase):
+  /// `amount` is what left the wallet, the fee included, because the
+  /// chain does not say how it divides.
+  final bool includesFee;
+
   const ActivityItem({
     required this.kind,
     required this.amount,
@@ -227,6 +233,7 @@ class ActivityItem {
     this.txid,
     this.memo,
     this.error,
+    required this.includesFee,
   });
 
   @override
@@ -239,7 +246,8 @@ class ActivityItem {
       address.hashCode ^
       txid.hashCode ^
       memo.hashCode ^
-      error.hashCode;
+      error.hashCode ^
+      includesFee.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -254,7 +262,8 @@ class ActivityItem {
           address == other.address &&
           txid == other.txid &&
           memo == other.memo &&
-          error == other.error;
+          error == other.error &&
+          includesFee == other.includesFee;
 }
 
 /// What an activity row is.

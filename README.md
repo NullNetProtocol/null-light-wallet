@@ -27,6 +27,11 @@ independent review yet: do not trust it with more than you can lose. See
   Nothing cryptographic is reimplemented in Dart.
 - **Self-custody.** Keys never leave the device. No account, no analytics,
   no cloud backup: the 24-word recovery phrase is the backup.
+- **Payment links.** `null:<address>?amount=…&message=…`
+  ([docs/payment-uri.md](docs/payment-uri.md)), from a QR code (scanned on
+  the device on Android), a pasted text, a tapped link on Android or
+  `https://wallet.nullnet.sh/#pay=…`. A link only fills the Send screen;
+  you review and confirm every payment.
 
 ## Layout
 

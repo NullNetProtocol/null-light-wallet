@@ -4,6 +4,10 @@ final BigInt unitsPerCoin = BigInt.from(100000000);
 /// Decimal places of a NULL amount.
 const amountDecimals = 8;
 
+/// The total supply cap in base units: 21 million NULL, `MAX_MONEY` in
+/// null-chain `crates/protocol/src/amount.rs`. No amount can exceed it.
+final BigInt maxMoney = BigInt.from(21000000) * unitsPerCoin;
+
 /// The base units of an amount typed as decimal NULL ("1.5", "0.00000001",
 /// "2"), or `null` if it is not one: no sign, no exponent, at most eight
 /// decimals, and a `.` or `,` as the separator.

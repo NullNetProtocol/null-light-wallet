@@ -24,6 +24,8 @@
 - [x] Onboarding: phrase shown once, three random words asked back,
       passphrase of 8+ characters
 - [x] Receive: newest address, QR code, copy, new address
+- [x] Receive: an optional amount and message turn the QR code into a
+      payment link (2026-11-17)
 - [x] Auto-lock after a minute in the background; lock now; delete wallet
 - [x] Auto-lock time in Settings: 1, 5 (default), 10 or 30 minutes in the background (2026-11-15)
 - [x] Android: `FLAG_SECURE` on the whole app (no screenshots, recordings

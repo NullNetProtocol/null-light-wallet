@@ -31,7 +31,8 @@
 
 ## Next
 
-- [ ] Send: scan a QR code, payment URIs
+- [x] Send: payment URIs (`docs/payment-uri.md`) typed, pasted or scanned
+      from a QR code (Android, zxing-cpp on the device) (2026-11-17)
 - [x] A real payment end to end on mainnet (receive, then send) on the APK (2026-11-15)
 - [ ] The same on the web wallet
 - [x] Release workflow: a tag builds the signed APKs and the web archive, checks the signer, publishes them with SHA256SUMS (2026-11-15)
@@ -59,5 +60,4 @@
 
 - [ ] Tor for sync and submission
 - [ ] Watch-only import from a viewing key
-- [ ] Payment URIs
 - [ ] F-Droid (reproducible build)

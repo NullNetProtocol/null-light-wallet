@@ -1,27 +1,42 @@
 import 'package:flutter/material.dart';
 
 import '../core/amount.dart';
+import '../core/payment_uri.dart';
 import '../core/wallet_core.dart';
 import '../wallet_model.dart';
+import 'scan/scan.dart' as scan;
 import 'widgets.dart';
+
+/// Reads a QR code and returns its text, or `null` if the user gave up.
+typedef QrScanner = Future<String?> Function(BuildContext context);
+
+/// The platform's scanner, or `null` where there is none (web, tests).
+QrScanner? get platformScanner => scan.canScanQr ? scan.scanQr : null;
 
 /// Longest memo, in bytes of UTF-8, as the chain allows.
 const maxMemoBytes = 512;
 
-/// Recipient, amount and memo, then a review with the exact fee.
+/// Recipient, amount and memo, then a review with the exact fee. The
+/// recipient field also takes a payment URI (docs/payment-uri.md), typed,
+/// pasted, scanned or handed over by [SendPageState.fill]; it fills the
+/// fields and never sends by itself.
 class SendPage extends StatefulWidget {
-  const SendPage({super.key, required this.model, this.onSent});
+  SendPage({super.key, required this.model, this.onSent, QrScanner? scanner})
+    : scanner = scanner ?? platformScanner;
 
   final WalletModel model;
 
   /// Called after a payment went out, to show the activity.
   final VoidCallback? onSent;
 
+  /// Scans a QR code; `null` hides the button.
+  final QrScanner? scanner;
+
   @override
-  State<SendPage> createState() => _SendPageState();
+  State<SendPage> createState() => SendPageState();
 }
 
-class _SendPageState extends State<SendPage> {
+class SendPageState extends State<SendPage> {
   final _address = TextEditingController();
   final _amount = TextEditingController();
   final _memo = TextEditingController();
@@ -29,6 +44,9 @@ class _SendPageState extends State<SendPage> {
   String? _amountError;
   bool _busy = false;
   String? _busyLabel;
+
+  /// The `message` of the payment request that filled the fields.
+  String? _requestMessage;
 
   @override
   void dispose() {
@@ -38,11 +56,50 @@ class _SendPageState extends State<SendPage> {
     super.dispose();
   }
 
-  void _onAddress(String value) => setState(() {
-    _check = value.trim().isEmpty
-        ? null
-        : widget.model.core.checkAddress(value);
-  });
+  void _onAddress(String value) {
+    if (looksLikePaymentUri(value)) {
+      fill(value);
+      return;
+    }
+    setState(() {
+      _requestMessage = null;
+      _check = value.trim().isEmpty
+          ? null
+          : widget.model.core.checkAddress(value);
+    });
+  }
+
+  /// Fills the fields from a payment URI, or from a bare address. A URI
+  /// that is not valid leaves the fields as typed and says why.
+  void fill(String text) {
+    if (!looksLikePaymentUri(text)) {
+      _address.text = text.trim();
+      _onAddress(_address.text);
+      return;
+    }
+    final result = parsePaymentUri(
+      text,
+      checkAddress: widget.model.core.checkAddress,
+    );
+    final request = result.request;
+    setState(() {
+      if (request == null) {
+        _check = AddressValidity(false, result.error);
+        return;
+      }
+      _address.text = request.address;
+      if (request.amount != null) _amount.text = formatAmount(request.amount!);
+      _requestMessage = request.message;
+      _check = const AddressValidity(true);
+      _amountError = null;
+    });
+  }
+
+  Future<void> _scan() async {
+    final text = await widget.scanner?.call(context);
+    if (text == null || !mounted) return;
+    fill(text);
+  }
 
   Future<void> _review() async {
     final to = _address.text.trim();
@@ -67,7 +124,10 @@ class _SendPageState extends State<SendPage> {
     _address.clear();
     _amount.clear();
     _memo.clear();
-    setState(() => _check = null);
+    setState(() {
+      _check = null;
+      _requestMessage = null;
+    });
     showMessage(
       context,
       result.delivered
@@ -109,6 +169,10 @@ class _SendPageState extends State<SendPage> {
                 to,
                 style: const TextStyle(fontFamily: 'monospace'),
               ),
+              if (_requestMessage != null) ...[
+                const SizedBox(height: 12),
+                Text('Request: $_requestMessage'),
+              ],
               const SizedBox(height: 12),
               _row('Amount', '${formatAmount(amount)} NULL'),
               _row('Network fee', '${formatAmount(fee)} NULL'),
@@ -152,6 +216,8 @@ class _SendPageState extends State<SendPage> {
   @override
   Widget build(BuildContext context) {
     final check = _check;
+    final scanner = widget.scanner;
+    final message = _requestMessage;
     return ListenableBuilder(
       listenable: widget.model,
       builder: (context, _) {
@@ -166,13 +232,37 @@ class _SendPageState extends State<SendPage> {
               enableSuggestions: false,
               decoration: InputDecoration(
                 labelText: 'Recipient address',
-                hintText: 'null1…',
+                hintText: 'null1… or a null: payment link',
                 errorText: check != null && !check.valid ? check.reason : null,
                 suffixIcon: check != null && check.valid
                     ? const Icon(Icons.check, semanticLabel: 'Valid address')
                     : null,
               ),
             ),
+            if (scanner != null) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.qr_code_scanner),
+                  label: const Text('Scan QR code'),
+                  onPressed: _busy ? null : _scan,
+                ),
+              ),
+            ],
+            if (message != null) ...[
+              const SizedBox(height: 16),
+              Card(
+                key: const Key('request-message'),
+                child: ListTile(
+                  title: Text(message),
+                  subtitle: const Text(
+                    'Message from the payment request. It is not sent '
+                    'with the payment.',
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             TextField(
               controller: _amount,

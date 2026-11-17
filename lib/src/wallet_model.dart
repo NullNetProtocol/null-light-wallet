@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'app.dart';
+import 'core/payment_uri.dart' show maxPaymentUriChars;
 import 'core/wallet_core.dart';
 import 'light/light_client.dart';
 import 'light/sync.dart';
@@ -62,6 +63,18 @@ class WalletModel extends ChangeNotifier {
   DateTime? _backgroundedAt;
   Timer? _timer;
   Future<void>? _inflight;
+
+  /// A payment URI from a link (Android) or the page fragment (web),
+  /// waiting for the Send screen of an unlocked wallet. It only fills the
+  /// fields; the user still reviews and confirms.
+  final ValueNotifier<String?> paymentLink = ValueNotifier(null);
+
+  /// Hands a payment link to the Send screen, now or after unlocking.
+  /// Text longer than any payment URI is ignored.
+  void openPaymentLink(String text) {
+    if (text.length > maxPaymentUriChars) return;
+    paymentLink.value = text;
+  }
 
   WalletStatus get status => _status;
   Balance? get balance => _balance;
@@ -127,6 +140,7 @@ class WalletModel extends ChangeNotifier {
   /// Deletes the wallet from the device.
   Future<void> delete() async {
     lock();
+    paymentLink.value = null;
     await core.store.delete();
     _tip = null;
     _syncNext = null;
@@ -274,6 +288,7 @@ class WalletModel extends ChangeNotifier {
   void dispose() {
     lock();
     _disposed = true;
+    paymentLink.dispose();
     super.dispose();
   }
 }

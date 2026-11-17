@@ -20,6 +20,33 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
+  final _send = GlobalKey<SendPageState>();
+
+  static const _sendTab = 2;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.model.paymentLink.addListener(_onPaymentLink);
+    // A link that arrived while the wallet was locked.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onPaymentLink());
+  }
+
+  @override
+  void dispose() {
+    widget.model.paymentLink.removeListener(_onPaymentLink);
+    super.dispose();
+  }
+
+  /// Opens the Send tab with the link's fields filled. Never sends.
+  void _onPaymentLink() {
+    final link = widget.model.paymentLink.value;
+    final send = _send.currentState;
+    if (link == null || send == null || !mounted) return;
+    widget.model.paymentLink.value = null;
+    setState(() => _tab = _sendTab);
+    send.fill(link);
+  }
 
   static const _titles = ['Wallet', 'Receive', 'Send', 'Settings'];
 
@@ -28,7 +55,11 @@ class _HomeShellState extends State<HomeShell> {
     final pages = [
       WalletPage(model: widget.model),
       ReceivePage(model: widget.model),
-      SendPage(model: widget.model, onSent: () => setState(() => _tab = 0)),
+      SendPage(
+        key: _send,
+        model: widget.model,
+        onSent: () => setState(() => _tab = 0),
+      ),
       SettingsPage(model: widget.model, lightClient: widget.lightClient),
     ];
     return Scaffold(

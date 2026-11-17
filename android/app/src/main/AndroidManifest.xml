@@ -38,9 +38,23 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- MainActivity hands null: links to Dart itself; Flutter's own
+                 deep linking would push them as routes the app does not have. -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="false"
+              />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Payment links (docs/payment-uri.md): they fill the Send
+                 screen after unlocking and never pay on their own. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="null"/>
             </intent-filter>
         </activity>
         <!-- The image picker comes with the scanner package and is never

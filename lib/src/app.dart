@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/payment_links.dart' as links;
 import 'core/wallet_core.dart';
 import 'light/light_client.dart';
 import 'settings.dart';
@@ -14,6 +15,9 @@ typedef LightClientFactory = LightClient Function(Uri endpoint);
 
 LightClient _defaultClient(Uri endpoint) => LightClient(endpoint);
 
+/// Delivers payment links (`null:` URIs) to `onLink`; tests pass a fake.
+typedef PaymentLinkSource = void Function(void Function(String link) onLink);
+
 /// The app: Material 3, black and white, following the system theme.
 class NullWalletApp extends StatefulWidget {
   const NullWalletApp({
@@ -21,12 +25,16 @@ class NullWalletApp extends StatefulWidget {
     required this.core,
     required this.settings,
     this.lightClient = _defaultClient,
+    this.paymentLinks = links.listenForPaymentLinks,
     this.model,
   });
 
   final WalletCore core;
   final AppSettings settings;
   final LightClientFactory lightClient;
+
+  /// Android intents or the web fragment; each link fills the Send screen.
+  final PaymentLinkSource paymentLinks;
 
   /// The wallet state; built from the other fields when not given.
   final WalletModel? model;
@@ -50,6 +58,7 @@ class _NullWalletAppState extends State<NullWalletApp>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _model.load();
+    widget.paymentLinks(_model.openPaymentLink);
   }
 
   @override

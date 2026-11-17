@@ -33,6 +33,8 @@
 
 - [x] Send: payment URIs (`docs/payment-uri.md`) typed, pasted or scanned
       from a QR code (Android, zxing-cpp on the device) (2026-11-17)
+- [x] Payment links open the Send screen after unlocking: `null:` on
+      Android, `#pay=` on the web wallet (2026-11-17)
 - [x] A real payment end to end on mainnet (receive, then send) on the APK (2026-11-15)
 - [ ] The same on the web wallet
 - [x] Release workflow: a tag builds the signed APKs and the web archive, checks the signer, publishes them with SHA256SUMS (2026-11-15)

@@ -79,7 +79,7 @@ void main() {
     expect(await client.submit(Uint8List.fromList([0xde, 0xad])), 'cd' * 32);
     expect(seen.map((c) => c['params']), [
       [5, 1],
-      [5, 100],
+      [5, 100, 2],
       ['dead'],
     ]);
     expect(seen.map((c) => c['id']).toSet().length, 3, reason: 'fresh ids');

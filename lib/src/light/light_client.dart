@@ -58,6 +58,10 @@ class LightException implements Exception {
       : 'LightException($code): $message';
 }
 
+/// The compact block format asked for: 2 carries the spends of a block's
+/// own coinbase (null-chain 0.1.13), which format 1 leaves out.
+const compactFormat = 2;
+
 /// A client for a node's public light-wallet listener
 /// (`nulld run --light-listen`, `docs/rpc.md` Phase 5 in null-chain).
 ///
@@ -97,9 +101,11 @@ class LightClient {
       (await _call('getblockhashes', [start, count]) as List).cast<String>();
 
   /// Compact blocks from `start`, ending early at the tip or the
-  /// server's byte cap. Ask again from the next height.
+  /// server's byte cap. Ask again from the next height. Asks for
+  /// [compactFormat]; a server from before it sends format 1, which the
+  /// core also reads.
   Future<List<Uint8List>> compactBlocks(int start, int count) async =>
-      (await _call('getcompactblocks', [start, count]) as List)
+      (await _call('getcompactblocks', [start, count, compactFormat]) as List)
           .map((hex) => fromHex(hex as String))
           .toList();
 

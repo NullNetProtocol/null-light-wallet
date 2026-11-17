@@ -1076,8 +1076,8 @@ dependencies = [
 
 [[package]]
 name = "null-chain"
-version = "0.1.12"
-source = "git+https://github.com/NullNetProtocol/null-chain?tag=v0.1.12#fb8ed2907b6301184ed23e669caab7ec6bddab16"
+version = "0.1.13"
+source = "git+https://github.com/NullNetProtocol/null-chain?tag=v0.1.13#259401b25bd0d78f8ee306f3eea62758def8fd49"
 dependencies = [
  "blake2b_simd",
  "null-circuit",
@@ -1091,8 +1091,8 @@ dependencies = [
 
 [[package]]
 name = "null-circuit"
-version = "0.1.12"
-source = "git+https://github.com/NullNetProtocol/null-chain?tag=v0.1.12#fb8ed2907b6301184ed23e669caab7ec6bddab16"
+version = "0.1.13"
+source = "git+https://github.com/NullNetProtocol/null-chain?tag=v0.1.13#259401b25bd0d78f8ee306f3eea62758def8fd49"
 dependencies = [
  "ff",
  "group",
@@ -1107,8 +1107,8 @@ dependencies = [
 
 [[package]]
 name = "null-crypto"
-version = "0.1.12"
-source = "git+https://github.com/NullNetProtocol/null-chain?tag=v0.1.12#fb8ed2907b6301184ed23e669caab7ec6bddab16"
+version = "0.1.13"
+source = "git+https://github.com/NullNetProtocol/null-chain?tag=v0.1.13#259401b25bd0d78f8ee306f3eea62758def8fd49"
 dependencies = [
  "aes",
  "blake2b_simd",
@@ -1129,8 +1129,8 @@ dependencies = [
 
 [[package]]
 name = "null-protocol"
-version = "0.1.12"
-source = "git+https://github.com/NullNetProtocol/null-chain?tag=v0.1.12#fb8ed2907b6301184ed23e669caab7ec6bddab16"
+version = "0.1.13"
+source = "git+https://github.com/NullNetProtocol/null-chain?tag=v0.1.13#259401b25bd0d78f8ee306f3eea62758def8fd49"
 dependencies = [
  "bech32",
  "ff",
@@ -1143,8 +1143,8 @@ dependencies = [
 
 [[package]]
 name = "null-storage"
-version = "0.1.12"
-source = "git+https://github.com/NullNetProtocol/null-chain?tag=v0.1.12#fb8ed2907b6301184ed23e669caab7ec6bddab16"
+version = "0.1.13"
+source = "git+https://github.com/NullNetProtocol/null-chain?tag=v0.1.13#259401b25bd0d78f8ee306f3eea62758def8fd49"
 dependencies = [
  "incrementalmerkletree",
  "null-crypto",
@@ -1155,8 +1155,8 @@ dependencies = [
 
 [[package]]
 name = "null-wallet"
-version = "0.1.12"
-source = "git+https://github.com/NullNetProtocol/null-chain?tag=v0.1.12#fb8ed2907b6301184ed23e669caab7ec6bddab16"
+version = "0.1.13"
+source = "git+https://github.com/NullNetProtocol/null-chain?tag=v0.1.13#259401b25bd0d78f8ee306f3eea62758def8fd49"
 dependencies = [
  "argon2",
  "bip39",

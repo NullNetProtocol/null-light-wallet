@@ -88,6 +88,17 @@ mod tests {
     }
 
     #[test]
+    fn a_format_2_compact_block_decodes() {
+        let mut bytes = 9u32.to_le_bytes().to_vec();
+        bytes.extend([0xcd; 32]);
+        bytes.extend(0u32.to_le_bytes());
+        bytes.extend(1u32.to_le_bytes());
+        bytes.extend([0u8; 32]);
+        let summary = summarize_compact_block(bytes).unwrap();
+        assert_eq!((summary.height, summary.actions), (9, 0));
+    }
+
+    #[test]
     fn the_version_is_the_crate_version() {
         assert_eq!(core_version(), env!("CARGO_PKG_VERSION"));
     }

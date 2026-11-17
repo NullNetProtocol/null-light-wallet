@@ -11,12 +11,14 @@
 - [x] Settings: light server (https only, http on loopback), connection test
 - [x] Android: no cloud backup or device transfer of app data; release
       signing from a local `key.properties`
-- [x] Core on null-chain `v0.1.12`: create (24 words) and restore, wallet
+- [x] Core on null-chain `v0.1.13`: create (24 words) and restore, wallet
       file sealed under a passphrase, unlock, recovery phrase shown again
       with the passphrase (2026-11-15)
 - [x] Sync: compact blocks in server-sized ranges, reorg rollback with
       `getblockhashes`, a lagging server undoes nothing, pending payments
-      resubmitted
+      resubmitted;
+      compact block format 2, so a note spent by a block's own coinbase
+      counts as spent (2026-11-17)
 - [x] Balance (spendable, on its way), activity (received, sent, change
       hidden by default)
 - [x] Send: exact fee quote, review, build and prove on the device, submit;
